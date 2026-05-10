@@ -1,0 +1,21 @@
+{
+  "name": "Absensi Remaja Masjid Wakaf Haqqul Yaqin",
+  "short_name": "Absensi RMWHY",
+  "description": "Aplikasi Absensi Offline Remaja Masjid Wakaf Haqqul Yaqin Dinoyo",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f4f9",
+  "theme_color": "#28a745",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
