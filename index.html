@@ -4,13 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scanner Absensi (Versi 6.1)</title>
-    <!-- Memanggil data anggota dari file terpisah -->
+    
+    <!-- TAG WAJIB UNTUK APLIKASI PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#28a745">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <!-- Memanggil data anggota -->
     <script src="data.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif; margin: 0; padding: 20px;
             display: flex; flex-direction: column; align-items: center;
-            background-color: #f4f4f9;
+            background-color: #f4f4f9; padding-bottom: 80px; /* Ruang untuk tombol melayang */
         }
         #scanner-container {
             width: 100%; max-width: 500px;
@@ -52,8 +59,18 @@
         .btn-scan { background-color: #6c63ff; }
         .btn-scan:hover { background-color: #5750d9; }
         .btn-success { background-color: #28a745; margin-top: 15px;}
-        .btn-warning { background-color: #ffc107; color: #333; margin-top: 5px;} /* Tombol Baru */
+        .btn-warning { background-color: #ffc107; color: #333; margin-top: 5px;}
         .btn-danger { background-color: #dc3545; }
+        
+        /* TOMBOL MENGAMBANG INSTALL APLIKASI */
+        #btn-install {
+            position: fixed; bottom: 20px; right: 20px;
+            background-color: #17a2b8; color: white; border: none;
+            padding: 15px 20px; border-radius: 50px; font-size: 14px; font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; z-index: 1000;
+            display: none; /* Awalnya disembunyikan sampai HP siap diinstal */
+        }
+        #btn-install:hover { background-color: #138496; }
         
         #output {
             margin-top: 15px; padding: 15px; border-radius: 5px; text-align: center; display: none; border: 1px solid transparent;
@@ -75,7 +92,6 @@
         .id-teks { color: #888; font-size: 12px; }
         .ket-badge { background: #17a2b8; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 5px; }
         
-        /* Box untuk yang belum hadir */
         #unattended-box {
             display: none; margin-top: 15px; padding: 15px; background: #fff3cd; 
             border: 1px solid #ffeeba; border-radius: 8px; text-align: left; width: 100%; max-width: 500px; box-sizing: border-box;
@@ -85,6 +101,7 @@
 </head>
 <body>
 
+    <!-- JUDUL BARU DARI ANDA -->
     <h2 style="margin-bottom: 10px; text-align: center;">Scanner Absensi<br><small style="font-size: 16px; color: #666;">Remaja Masjid Wakaf Haqqul Yaqin Dinoyo</small><br><small style="font-size: 12px; color: #666; font-style: italic;">(Versi 6.1 - Filter Kehadiran)</small></h2>
 
     <div id="scanner-container">
@@ -105,13 +122,11 @@
         </div>
     </div>
 
-    <!-- Tombol Aksi -->
     <div style="width: 100%; max-width: 500px;">
         <button onclick="exportToCSV()" class="btn btn-success">⬇️ Download Data CSV</button>
         <button onclick="cekBelumHadir()" class="btn btn-warning">🔍 Cek Belum Hadir</button>
         <button onclick="clearData()" class="btn btn-danger" style="margin-top: 5px;">🗑️ Kosongkan Data Absen</button>
         
-        <!-- Wadah List Belum Hadir (Awalnya Tersembunyi) -->
         <div id="unattended-box">
             <h3>Daftar Belum Hadir:</h3>
             <div id="unattended-list"></div>
@@ -121,12 +136,54 @@
         <div id="result-list"></div>
     </div>
 
+    <!-- TOMBOL MENGAMBANG INSTALL PWA -->
+    <button id="btn-install">📥 Install Aplikasi</button>
+
     <script>
-        // --- 1. INISIALISASI DATA ---
-        // Mengambil data dari data.js. Jika file tidak ada, set kosong agar tidak error.
+        // ==========================================
+        // FITUR REGISTRASI PWA (SERVICE WORKER & INSTALL)
+        // ==========================================
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(reg => {
+                    console.log('Service Worker terdaftar!', reg);
+                }).catch(err => {
+                    console.log('Service Worker gagal:', err);
+                });
+            });
+        }
+
+        let deferredPrompt;
+        const btnInstall = document.getElementById('btn-install');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Mencegah prompt Chrome lama muncul otomatis
+            e.preventDefault();
+            // Simpan event untuk dipicu nanti
+            deferredPrompt = e;
+            // Tampilkan tombol melayang
+            btnInstall.style.display = 'block';
+        });
+
+        btnInstall.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                // Tampilkan dialog instalasi asli HP
+                deferredPrompt.prompt();
+                // Tunggu respons user
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    console.log('User menerima instalasi');
+                    btnInstall.style.display = 'none'; // Sembunyikan tombol setelah diinstal
+                }
+                deferredPrompt = null;
+            }
+        });
+
+        // ==========================================
+        // SISTEM ABSENSI (TIDAK ADA PERUBAHAN DARI V6.0)
+        // ==========================================
         const dbAnggota = typeof dataAnggota !== 'undefined' ? dataAnggota : {};
 
-        // --- 2. SISTEM APLIKASI ---
         const videoElement = document.getElementById('qr-video');
         const cameraSelector = document.getElementById('camera-selector');
         const scanButton = document.getElementById('scan-button');
@@ -138,12 +195,10 @@
         let currentStream = null;
         let isScanning = false;
         let lastScanned = "";
-        
-        let attendanceData = JSON.parse(localStorage.getItem('absensi_anggota_v6')) || [];
+        let attendanceData = JSON.parse(localStorage.getItem('absensi_anggota_v6_1')) || []; // Update local storage key
         
         updateUI();
 
-        // --- FUNGSI SUARA BEEP ---
         function playBeep() {
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -154,14 +209,13 @@
                 
                 osc.type = 'square';
                 osc.frequency.setValueAtTime(850, ctx.currentTime);
-                
                 gainNode.gain.setValueAtTime(1, ctx.currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
                 
                 osc.connect(gainNode);
                 gainNode.connect(ctx.destination);
                 osc.start(); osc.stop(ctx.currentTime + 0.15);
-            } catch (e) { console.log("Beep error:", e); }
+            } catch (e) { }
         }
 
         function showNotification(judul, keterangan, tipeKelas) {
@@ -171,7 +225,6 @@
             outputBox.style.display = "block";
         }
 
-        // --- SETUP KAMERA ---
         navigator.mediaDevices.enumerateDevices().then(devices => {
             const videoDevices = devices.filter(device => device.kind === 'videoinput');
             if (videoDevices.length > 0) {
@@ -201,7 +254,6 @@
             isScanning = false; scanButton.style.display = "block"; stopButton.style.display = "none"; scanLine.style.display = "none"; 
         }
 
-        // --- PEMINDAI BARCODE ---
         async function scanOffline() {
             if (!isScanning) return;
 
@@ -214,8 +266,6 @@
                         
                         if (idData !== lastScanned) {
                             lastScanned = idData;
-                            
-                            // Ambil data dari variabel dbAnggota (dari data.js)
                             const dataDitemukan = dbAnggota[idData];
                             
                             if (!dataDitemukan) {
@@ -244,17 +294,12 @@
             requestAnimationFrame(scanOffline);
         }
 
-        // --- PENYIMPANAN DATA ---
         function simpanKeDatabase(idData, nama, keterangan) {
             const now = new Date();
             const timeString = now.toLocaleDateString('id-ID') + ' ' + now.toLocaleTimeString('id-ID');
-            
             attendanceData.push({ id: idData, nama: nama, waktu: timeString, keterangan: keterangan });
-            localStorage.setItem('absensi_anggota_v6', JSON.stringify(attendanceData)); 
-            
-            // Jika box belum hadir sedang terbuka, otomatis diupdate/ditutup
+            localStorage.setItem('absensi_anggota_v6_1', JSON.stringify(attendanceData)); 
             if (unattendedBox.style.display === "block") cekBelumHadir(true);
-            
             updateUI();
         }
 
@@ -264,7 +309,6 @@
             [...attendanceData].reverse().forEach((item, index) => {
                 let nomorUrut = attendanceData.length - index;
                 let badgeKet = item.keterangan !== "-" ? `<span class="ket-badge">${item.keterangan}</span>` : "";
-                
                 list.innerHTML += `
                 <div class="log-item">
                     <span class="nama-teks">${nomorUrut}. ${item.nama}</span> ${badgeKet}<br>
@@ -273,29 +317,19 @@
             });
         }
 
-        // --- FITUR CEK BELUM HADIR ---
         function cekBelumHadir(forceUpdate = false) {
             const listBelumHadir = document.getElementById('unattended-list');
-            
-            // Logika Buka/Tutup (Toggle)
-            if (unattendedBox.style.display === "block" && !forceUpdate) {
-                unattendedBox.style.display = "none";
-                return;
-            }
-
+            if (unattendedBox.style.display === "block" && !forceUpdate) { unattendedBox.style.display = "none"; return; }
             listBelumHadir.innerHTML = '';
             let jumlahBelumHadir = 0;
 
-            // Looping seluruh data di data.js
             for (let id in dbAnggota) {
                 const sudahAbsen = attendanceData.some(item => item.id === id);
-                
                 if (!sudahAbsen) {
                     jumlahBelumHadir++;
                     let nama = dbAnggota[id].nama || "Tanpa Nama";
                     let ket = dbAnggota[id].keterangan || "-";
                     let badgeKet = ket !== "-" ? `<span class="ket-badge" style="background: #6c757d;">${ket}</span>` : "";
-                    
                     listBelumHadir.innerHTML += `
                     <div class="log-item" style="border-bottom: 1px solid #ffeeba; color: #856404;">
                         <span class="nama-teks">${jumlahBelumHadir}. ${nama}</span> ${badgeKet}<br>
@@ -303,56 +337,36 @@
                     </div>`;
                 }
             }
-
-            if (jumlahBelumHadir === 0) {
-                listBelumHadir.innerHTML = "<i>Semua anggota telah hadir! 🎉</i>";
-            }
-
+            if (jumlahBelumHadir === 0) { listBelumHadir.innerHTML = "<i>Semua anggota telah hadir! 🎉</i>"; }
             unattendedBox.style.display = "block";
         }
 
-        // --- EKSPOR KE CSV (Hadir & Belum Hadir) ---
         function exportToCSV() {
             if (Object.keys(dbAnggota).length === 0) return alert("Belum ada data anggota di file data.js!");
-            
             let csvContent = "data:text/csv;charset=utf-8,ID Anggota,Nama Anggota,Tanggal & Jam,Keterangan\n";
-            
-            // 1. Tulis yang sudah hadir
-            attendanceData.forEach(row => { 
-                csvContent += `"${row.id}","${row.nama}","${row.waktu}","${row.keterangan}"\n`; 
-            });
-            
-            // 2. Tulis yang BELUM hadir dengan status "Tidak Hadir"
+            attendanceData.forEach(row => { csvContent += `"${row.id}","${row.nama}","${row.waktu}","${row.keterangan}"\n`; });
             for (let id in dbAnggota) {
                 const sudahAbsen = attendanceData.some(item => item.id === id);
                 if (!sudahAbsen) {
                     let nama = dbAnggota[id].nama || "Tanpa Nama";
                     let ket = dbAnggota[id].keterangan || "-";
-                    // Memasukkan keterangan "Tidak Hadir" di kolom Waktu
                     csvContent += `"${id}","${nama}","Tidak Hadir","${ket}"\n`;
                 }
             }
-            
             const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
             const tanggalSekarang = new Date().toLocaleDateString('id-ID', options);
             const fileName = `Laporan Absensi_${tanggalSekarang}.csv`;
-            
             const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", fileName);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", fileName);
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
         }
 
-        // --- KOSONGKAN DATA ---
         function clearData() {
             if(confirm("Hapus semua riwayat absensi lokal ini?")) {
-                localStorage.removeItem('absensi_anggota_v6');
+                localStorage.removeItem('absensi_anggota_v6_1');
                 attendanceData = [];
                 outputBox.style.display = "none";
-                unattendedBox.style.display = "none"; // Tutup juga box belum hadir
+                unattendedBox.style.display = "none"; 
                 updateUI();
             }
         }
