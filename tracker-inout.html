@@ -46,6 +46,14 @@
         .form-group { margin-bottom: 10px; display: flex; gap: 10px; align-items: center;}
         .form-group select { flex: 2; padding: 8px; border-radius: 5px; border: 1px solid #ccc;}
         .form-group input { flex: 1; padding: 8px; border-radius: 5px; border: 1px solid #ccc; text-align: center;}
+
+        /* CSS POPUP BERHASIL (TOAST) */
+        #toast-success {
+            display: none; position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            background: #28a745; color: white; padding: 20px 30px; border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 3000; font-size: 18px; font-weight: bold;
+            text-align: center; border: 3px solid #fff;
+        }
     </style>
 </head>
 <body>
@@ -71,13 +79,13 @@
         <button onclick="exportToCSV()" class="btn btn-success" style="margin-top: 15px;">⬇️ Download Laporan (CSV)</button>
         <button onclick="clearData()" class="btn btn-danger">🗑️ Kosongkan Riwayat</button>
 
-        <h3 style="margin-bottom: 5px; margin-top: 20px;">Daftar Aktivitas:</h3>
+        <h3 style="margin-bottom: 5px; margin-top: 20px;">Daftar Transaksi:</h3>
         <div id="result-list"></div>
     </div>
 
     <div id="modal-overlay">
         <div id="modal-box">
-            <h3>Aktifitas Anggota</h3>
+            <h3>Transaksi Anggota</h3>
             <p style="margin-top:0; font-size:15px; color:#555;">
                 Nama: <b id="m-nama" style="color:#000;"></b><br>
                 ID: <b id="m-id" style="color:#000;"></b>
@@ -91,6 +99,7 @@
             <hr style="border:0; border-top:1px solid #ccc; margin: 15px 0;">
             
             <strong style="display:block; margin-bottom:8px;">➕ Pinjam Barang Baru:</strong>
+            
             <div class="form-group">
                 <select id="m-item">
                     <option value="Pisau Kecil">Pisau Kecil</option>
@@ -99,11 +108,13 @@
                 </select>
                 <input type="number" id="m-qty" value="1" min="1">
             </div>
+            
             <button onclick="pinjamBarang()" class="btn btn-scan" style="margin-bottom:15px;">Pinjam Barang</button>
-
             <button onclick="tutupModal()" class="btn btn-danger">Batal / Tutup</button>
         </div>
     </div>
+
+    <div id="toast-success">✅ Berhasil!</div>
 
     <script>
         const dbAnggota = typeof dataAnggota !== 'undefined' ? dataAnggota : {};
@@ -111,6 +122,7 @@
         const cameraSelector = document.getElementById('camera-selector');
         const scanLine = document.getElementById('scan-line');
         const modalOverlay = document.getElementById('modal-overlay');
+        const toastSuccess = document.getElementById('toast-success');
         
         let currentStream = null;
         let isScanning = false;
@@ -121,7 +133,6 @@
 
         updateUI();
 
-        // Suara BEEP saat berhasil scan barcode (Kuat/Nyaring)
         function playBeep() {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -134,29 +145,36 @@
             } catch (e) { }
         }
 
-        // Suara CENTLING ganda saat berhasil mengembalikan barang (Sama kuatnya dengan scan)
-        function playCentling() {
+        // Suara Success yang lebih lembut dan elegan (tidak cempreng)
+        function playSuccessSound() {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // Nada Pertama (Tinggi)
+                // Nada 1
                 const osc1 = ctx.createOscillator(); const gain1 = ctx.createGain();
-                osc1.type = 'sine'; osc1.frequency.setValueAtTime(1200, ctx.currentTime);
-                gain1.gain.setValueAtTime(1, ctx.currentTime); // Volume penuh (Gain = 1)
-                gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+                osc1.type = 'triangle'; osc1.frequency.setValueAtTime(800, ctx.currentTime);
+                gain1.gain.setValueAtTime(0.5, ctx.currentTime);
+                gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
                 osc1.connect(gain1); gain1.connect(ctx.destination);
-                osc1.start(); osc1.stop(ctx.currentTime + 0.12);
+                osc1.start(); osc1.stop(ctx.currentTime + 0.1);
                 
-                // Nada Kedua (Lebih Tinggi, jeda 0.07 detik agar terdengar lenting ganda)
-                setTimeout(() => {
-                    const osc2 = ctx.createOscillator(); const gain2 = ctx.createGain();
-                    osc2.type = 'sine'; osc2.frequency.setValueAtTime(1600, ctx.currentTime);
-                    gain2.gain.setValueAtTime(1, ctx.currentTime); // Volume penuh (Gain = 1)
-                    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
-                    osc2.connect(gain2); gain2.connect(ctx.destination);
-                    osc2.start(); osc2.stop(ctx.currentTime + 0.18);
-                }, 70);
+                // Nada 2 (Langsung nyambung)
+                const osc2 = ctx.createOscillator(); const gain2 = ctx.createGain();
+                osc2.type = 'triangle'; osc2.frequency.setValueAtTime(1200, ctx.currentTime + 0.1);
+                gain2.gain.setValueAtTime(0.5, ctx.currentTime + 0.1);
+                gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc2.connect(gain2); gain2.connect(ctx.destination);
+                osc2.start(ctx.currentTime + 0.1); osc2.stop(ctx.currentTime + 0.3);
             } catch (e) { }
+        }
+
+        // Fungsi memunculkan pesan selama 0,5 detik
+        function tunjukkanPesanBerhasil(pesan) {
+            toastSuccess.innerHTML = `✅ ${pesan}`;
+            toastSuccess.style.display = 'block';
+            setTimeout(() => {
+                toastSuccess.style.display = 'none';
+            }, 500); // 500ms = 0.5 Detik
         }
 
         navigator.mediaDevices.enumerateDevices().then(devices => {
@@ -200,7 +218,7 @@
                         const dataDitemukan = dbAnggota[idData];
                             
                         if (!dataDitemukan) {
-                            isModalOpen = true; // Kunci scanner sebentar
+                            isModalOpen = true; 
                             document.getElementById('output').className = "out-danger";
                             document.getElementById('output-nama').innerText = "⚠️ ID " + idData + " tidak terdaftar!";
                             document.getElementById('output').style.display = "block";
@@ -234,7 +252,6 @@
             if (barangDipinjam.length > 0) {
                 returnSection.style.display = "block";
                 
-                // FITUR UPDATE: Jika meminjam lebih dari 1 barang, munculkan tombol Kembalikan Semua di paling atas
                 if (barangDipinjam.length > 1) {
                     listContainer.innerHTML += `
                         <button onclick="kembalikanSemuaBarang('${id}')" class="btn btn-warning" style="margin-bottom: 12px; font-size:13px;">⬇️ Kembalikan Semua (${barangDipinjam.length} Barang)</button>
@@ -257,7 +274,6 @@
 
         function tutupModal() {
             modalOverlay.style.display = 'none';
-            // Hanya jeda anti-loop mikro 300ms (tidak terlihat oleh mata pengguna) saat menutup modal agar tidak langsung ter-scan ulang frame yang sama
             setTimeout(() => { isModalOpen = false; }, 300);
         }
 
@@ -266,8 +282,14 @@
             const jumlah = document.getElementById('m-qty').value;
 
             const isDuplicate = trackingData.some(row => row.id === tempId && row.item === itemDipilih && row.status === "Dipinjam");
-            if (isDuplicate) return alert(`Anggota ini sedang meminjam ${itemDipilih} dan belum dikembalikan!`);
-            if (jumlah < 1) return alert("Jumlah minimal 1");
+            if (isDuplicate) {
+                alert(`Anggota ini sedang meminjam ${itemDipilih} dan belum dikembalikan!`);
+                return;
+            }
+            if (jumlah < 1) {
+                alert("Jumlah minimal 1");
+                return;
+            }
 
             trackingData.push({ 
                 id_transaksi: 'TRX-' + Date.now(),
@@ -279,26 +301,25 @@
             
             localStorage.setItem('tracker_inout_v2', JSON.stringify(trackingData)); 
             updateUI(); 
+            playSuccessSound();
+            tunjukkanPesanBerhasil("Tersimpan!");
             tutupModal();
         }
 
-        // Fungsi kembalikan 1 barang spesifik
         function kembalikanBarang(idTransaksi) {
             const index = trackingData.findIndex(row => row.id_transaksi === idTransaksi);
             if(index !== -1) {
-                const namaBarang = trackingData[index].item;
                 trackingData[index].status = "Dikembalikan";
                 trackingData[index].waktu_kembali = getWaktuSekarang();
                 localStorage.setItem('tracker_inout_v2', JSON.stringify(trackingData));
                 
                 updateUI(); 
-                playCentling(); // Bunyi centling nyaring
-                alert(`🎉 Berhasil! Barang "${namaBarang}" milik ${tempNama} telah dikembalikan.`);
+                playSuccessSound();
+                tunjukkanPesanBerhasil("Dikembalikan!");
                 tutupModal();
             }
         }
 
-        // FITUR UPDATE: Fungsi kembalikan semua barang sekaligus
         function kembalikanSemuaBarang(idAnggota) {
             let totalBarang = 0;
             trackingData.forEach((row, index) => {
@@ -313,8 +334,8 @@
                 localStorage.setItem('tracker_inout_v2', JSON.stringify(trackingData));
                 
                 updateUI(); 
-                playCentling(); // Bunyi centling nyaring
-                alert(`🎉 Berhasil! Semua barang (${totalBarang} item) milik ${tempNama} telah dikembalikan bersamaan.`);
+                playSuccessSound();
+                tunjukkanPesanBerhasil("Semua Dikembalikan!");
                 tutupModal();
             }
         }
