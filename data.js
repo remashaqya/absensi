@@ -6,12 +6,12 @@
 
 const dataAnggota = {
     "PQHY001": { nama: "Agung Sudaryanto", keterangan: "Pembina" },
-    "PQHY002": { nama: "Ahmad Rendi N.", keterangan: "Ketua Umum" },
+    "PQHY002": { nama: "Ahmad Rendi N.", keterangan: "Penanggungjawab" },
     "PQHY003": { nama: "Nur Rokhim", keterangan: "Ketua Pelaksana" },
     "PQHY004": { nama: "Siswanto", keterangan: "Wakil Ketupel" },
     "PQHY005": { nama: "Rizkyah Amanatul R.", keterangan: "Sekretaris" },
     "PQHY006": { nama: "Atfiyatul Fatati", keterangan: "Bendahara" },
-    "PQHY007": { nama: "Ani Nuraini", keterangan: "Humas & Dana" },
+    "PQHY007": { nama: "Nuraini", keterangan: "Humas & Dana" },
     "PQHY008": { nama: "Meishah Gelis", keterangan: "Humas & Dana" },
     "PQHY009": { nama: "Muhda Sabila", keterangan: "Humas & Dana" },
     "PQHY010": { nama: "Rini Hardiani", keterangan: "Humas & Dana" },
