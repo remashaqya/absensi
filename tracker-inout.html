@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tracker In/Out Barang (Versi Cepat)</title>
+    <title>Tracker In/Out Barang (Versi Stabil)</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#17a2b8">
@@ -79,13 +79,13 @@
         <button onclick="exportToCSV()" class="btn btn-success" style="margin-top: 15px;">⬇️ Download Laporan (CSV)</button>
         <button onclick="clearData()" class="btn btn-danger">🗑️ Kosongkan Riwayat</button>
 
-        <h3 style="margin-bottom: 5px; margin-top: 20px;">Daftar Transaksi:</h3>
+        <h3 style="margin-bottom: 5px; margin-top: 20px;">Daftar Aktivitas:</h3>
         <div id="result-list"></div>
     </div>
 
     <div id="modal-overlay">
         <div id="modal-box">
-            <h3>Transaksi Anggota</h3>
+            <h3>Aktivitas Anggota</h3>
             <p style="margin-top:0; font-size:15px; color:#555;">
                 Nama: <b id="m-nama" style="color:#000;"></b><br>
                 ID: <b id="m-id" style="color:#000;"></b>
@@ -133,48 +133,56 @@
 
         updateUI();
 
+        // ----------------- AUDIO FIX -----------------
+        // Memakai SATU konteks audio global agar memori tidak penuh dan suara tidak macet
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
         function playBeep() {
             try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator(); const gainNode = ctx.createGain();
-                osc.type = 'square'; osc.frequency.setValueAtTime(850, ctx.currentTime);
-                gainNode.gain.setValueAtTime(1, ctx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-                osc.connect(gainNode); gainNode.connect(ctx.destination);
-                osc.start(); osc.stop(ctx.currentTime + 0.15);
-            } catch (e) { }
+                initAudio();
+                const osc = audioCtx.createOscillator(); const gainNode = audioCtx.createGain();
+                osc.type = 'square'; osc.frequency.setValueAtTime(850, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+                osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+            } catch (e) { console.error("Audio error:", e); }
         }
 
-        // Suara Success yang lebih lembut dan elegan (tidak cempreng)
         function playSuccessSound() {
             try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                
+                initAudio();
                 // Nada 1
-                const osc1 = ctx.createOscillator(); const gain1 = ctx.createGain();
-                osc1.type = 'triangle'; osc1.frequency.setValueAtTime(800, ctx.currentTime);
-                gain1.gain.setValueAtTime(0.5, ctx.currentTime);
-                gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-                osc1.connect(gain1); gain1.connect(ctx.destination);
-                osc1.start(); osc1.stop(ctx.currentTime + 0.1);
+                const osc1 = audioCtx.createOscillator(); const gain1 = audioCtx.createGain();
+                osc1.type = 'triangle'; osc1.frequency.setValueAtTime(800, audioCtx.currentTime);
+                gain1.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc1.connect(gain1); gain1.connect(audioCtx.destination);
+                osc1.start(); osc1.stop(audioCtx.currentTime + 0.1);
                 
-                // Nada 2 (Langsung nyambung)
-                const osc2 = ctx.createOscillator(); const gain2 = ctx.createGain();
-                osc2.type = 'triangle'; osc2.frequency.setValueAtTime(1200, ctx.currentTime + 0.1);
-                gain2.gain.setValueAtTime(0.5, ctx.currentTime + 0.1);
-                gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-                osc2.connect(gain2); gain2.connect(ctx.destination);
-                osc2.start(ctx.currentTime + 0.1); osc2.stop(ctx.currentTime + 0.3);
-            } catch (e) { }
+                // Nada 2 
+                const osc2 = audioCtx.createOscillator(); const gain2 = audioCtx.createGain();
+                osc2.type = 'triangle'; osc2.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.1);
+                gain2.gain.setValueAtTime(0.5, audioCtx.currentTime + 0.1);
+                gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc2.connect(gain2); gain2.connect(audioCtx.destination);
+                osc2.start(audioCtx.currentTime + 0.1); osc2.stop(audioCtx.currentTime + 0.3);
+            } catch (e) { console.error("Audio error:", e); }
         }
+        // ---------------------------------------------
 
-        // Fungsi memunculkan pesan selama 0,5 detik
         function tunjukkanPesanBerhasil(pesan) {
             toastSuccess.innerHTML = `✅ ${pesan}`;
             toastSuccess.style.display = 'block';
-            setTimeout(() => {
-                toastSuccess.style.display = 'none';
-            }, 500); // 500ms = 0.5 Detik
+            setTimeout(() => { toastSuccess.style.display = 'none'; }, 500); 
         }
 
         navigator.mediaDevices.enumerateDevices().then(devices => {
@@ -190,6 +198,7 @@
         cameraSelector.addEventListener('change', () => { if (isScanning) startCamera(cameraSelector.value); });
 
         function startCamera(cameraId) {
+            initAudio(); // Inisiasi audio saat tombol ditekan oleh user
             if (currentStream) currentStream.getTracks().forEach(track => track.stop());
             navigator.mediaDevices.getUserMedia({ video: { deviceId: cameraId ? { exact: cameraId } : undefined, facingMode: "environment" } })
                 .then(stream => {
@@ -262,7 +271,7 @@
                     listContainer.innerHTML += `
                         <div class="active-loan-item">
                             <span>📦 ${row.item} (Qty: ${row.qty})</span>
-                            <button onclick="kembalikanBarang('${row.id_transaksi}')" class="btn btn-success" style="width:auto; padding:5px 10px; margin:0; font-size:12px;">Kembalikan</button>
+                            <button onclick="kembalikanBarang('${row.id_aktivitas}')" class="btn btn-success" style="width:auto; padding:5px 10px; margin:0; font-size:12px;">Kembalikan</button>
                         </div>
                     `;
                 });
@@ -292,7 +301,7 @@
             }
 
             trackingData.push({ 
-                id_transaksi: 'TRX-' + Date.now(),
+                id_aktivitas: 'AKT-' + Date.now(),
                 id: tempId, nama: tempNama, item: itemDipilih, qty: jumlah,
                 waktu_pinjam: getWaktuSekarang(),
                 waktu_kembali: "-",
@@ -306,8 +315,8 @@
             tutupModal();
         }
 
-        function kembalikanBarang(idTransaksi) {
-            const index = trackingData.findIndex(row => row.id_transaksi === idTransaksi);
+        function kembalikanBarang(idAktivitas) {
+            const index = trackingData.findIndex(row => row.id_aktivitas === idAktivitas);
             if(index !== -1) {
                 trackingData[index].status = "Dikembalikan";
                 trackingData[index].waktu_kembali = getWaktuSekarang();
@@ -359,18 +368,21 @@
 
         function exportToCSV() {
             if (trackingData.length === 0) return alert("Belum ada data!");
-            let csvContent = "data:text/csv;charset=utf-8,ID Transaksi,ID Anggota,Nama Anggota,Barang,Jumlah,Status,Waktu Pinjam,Waktu Kembali\n";
+            
+            // KATA TRANSAKSI DIGANTI AKTIVITAS DI HEADER CSV
+            let csvContent = "data:text/csv;charset=utf-8,ID Aktivitas,ID Anggota,Nama Anggota,Barang,Jumlah,Status,Waktu Pinjam,Waktu Kembali\n";
             trackingData.forEach(row => { 
-                csvContent += `"${row.id_transaksi}","${row.id}","${row.nama}","${row.item}","${row.qty}","${row.status}","${row.waktu_pinjam}","${row.waktu_kembali}"\n`; 
+                csvContent += `"${row.id_aktivitas}","${row.id}","${row.nama}","${row.item}","${row.qty}","${row.status}","${row.waktu_pinjam}","${row.waktu_kembali}"\n`; 
             });
             const link = document.createElement("a"); 
             link.setAttribute("href", encodeURI(csvContent)); 
-            link.setAttribute("download", `Laporan_InOut_${new Date().getTime()}.csv`);
+            link.setAttribute("download", `Laporan_Aktivitas_${new Date().getTime()}.csv`);
             document.body.appendChild(link); link.click(); document.body.removeChild(link);
         }
 
         function clearData() {
-            if(confirm("Hapus semua riwayat transaksi ini?")) {
+            // KATA TRANSAKSI DIGANTI AKTIVITAS
+            if(confirm("Hapus semua riwayat aktivitas ini?")) {
                 localStorage.removeItem('tracker_inout_v2'); trackingData = []; updateUI();
             }
         }
