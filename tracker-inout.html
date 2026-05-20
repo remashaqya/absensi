@@ -50,7 +50,7 @@
 </head>
 <body>
 
-    <h2 style="margin-bottom: 10px; text-align: center;">Sistem In/Out Barang (Snappy)</h2>
+    <h2 style="margin-bottom: 10px; text-align: center;">Sistem In/Out Barang<br><small style="font-size: 16px; color: #666;">Remaja Masjid Wakaf Haqqul Yaqin Dinoyo</small></h2>
 
     <div id="scanner-container">
         <select id="camera-selector"></select>
@@ -71,13 +71,13 @@
         <button onclick="exportToCSV()" class="btn btn-success" style="margin-top: 15px;">⬇️ Download Laporan (CSV)</button>
         <button onclick="clearData()" class="btn btn-danger">🗑️ Kosongkan Riwayat</button>
 
-        <h3 style="margin-bottom: 5px; margin-top: 20px;">Daftar Transaksi:</h3>
+        <h3 style="margin-bottom: 5px; margin-top: 20px;">Daftar Aktivitas:</h3>
         <div id="result-list"></div>
     </div>
 
     <div id="modal-overlay">
         <div id="modal-box">
-            <h3>Transaksi Anggota</h3>
+            <h3>Aktifitas Anggota</h3>
             <p style="margin-top:0; font-size:15px; color:#555;">
                 Nama: <b id="m-nama" style="color:#000;"></b><br>
                 ID: <b id="m-id" style="color:#000;"></b>
@@ -93,11 +93,9 @@
             <strong style="display:block; margin-bottom:8px;">➕ Pinjam Barang Baru:</strong>
             <div class="form-group">
                 <select id="m-item">
-                    <option value="Mic / Sound">Mic / Sound</option>
-                    <option value="Karpet / Tikar">Karpet / Tikar</option>
-                    <option value="Kabel Roll">Kabel Roll</option>
-                    <option value="Proyektor">Proyektor</option>
-                    <option value="Kunci Ruangan">Kunci Ruangan</option>
+                    <option value="Pisau Kecil">Pisau Kecil</option>
+                    <option value="Pisau Besar">Pisau Besar</option>
+                    <option value="Kapak">Kapak</option>
                 </select>
                 <input type="number" id="m-qty" value="1" min="1">
             </div>
