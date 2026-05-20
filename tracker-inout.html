@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tracker In/Out Barang</title>
+    <title>Tracker In/Out Barang (Versi Cepat)</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#17a2b8">
@@ -50,7 +50,7 @@
 </head>
 <body>
 
-    <h2 style="margin-bottom: 10px; text-align: center;">Sistem In/Out Barang</h2>
+    <h2 style="margin-bottom: 10px; text-align: center;">Sistem In/Out Barang (Snappy)</h2>
 
     <div id="scanner-container">
         <select id="camera-selector"></select>
@@ -59,7 +59,6 @@
             <video id="qr-video" playsinline autoplay muted></video>
             <div class="scan-area"></div>
             <div class="scan-line" id="scan-line" style="display:none;"></div>
-            <div id="cooldown-overlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); color:white; justify-content:center; align-items:center; font-weight:bold; font-size:18px;">Memproses...</div>
         </div>
         
         <button id="scan-button" class="btn btn-scan">Mulai Scanner</button>
@@ -94,15 +93,17 @@
             <strong style="display:block; margin-bottom:8px;">➕ Pinjam Barang Baru:</strong>
             <div class="form-group">
                 <select id="m-item">
-                    <option value="Pisau Kecil">Pisau Kecil</option>
-                    <option value="Pisau Besar">Pisau Besar</option>
-                    <option value="Kapak">Kapak</option>
+                    <option value="Mic / Sound">Mic / Sound</option>
+                    <option value="Karpet / Tikar">Karpet / Tikar</option>
+                    <option value="Kabel Roll">Kabel Roll</option>
+                    <option value="Proyektor">Proyektor</option>
+                    <option value="Kunci Ruangan">Kunci Ruangan</option>
                 </select>
                 <input type="number" id="m-qty" value="1" min="1">
             </div>
             <button onclick="pinjamBarang()" class="btn btn-scan" style="margin-bottom:15px;">Pinjam Barang</button>
 
-            <button onclick="tutupModal(false)" class="btn btn-danger">Batal / Tutup</button>
+            <button onclick="tutupModal()" class="btn btn-danger">Batal / Tutup</button>
         </div>
     </div>
 
@@ -112,18 +113,17 @@
         const cameraSelector = document.getElementById('camera-selector');
         const scanLine = document.getElementById('scan-line');
         const modalOverlay = document.getElementById('modal-overlay');
-        const cooldownOverlay = document.getElementById('cooldown-overlay');
         
         let currentStream = null;
         let isScanning = false;
         let isModalOpen = false;
-        let isCooldown = false;
         
         let trackingData = JSON.parse(localStorage.getItem('tracker_inout_v2')) || []; 
         let tempId = "", tempNama = "";
 
         updateUI();
 
+        // Suara BEEP saat berhasil scan barcode (Kuat/Nyaring)
         function playBeep() {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -133,6 +133,31 @@
                 gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
                 osc.connect(gainNode); gainNode.connect(ctx.destination);
                 osc.start(); osc.stop(ctx.currentTime + 0.15);
+            } catch (e) { }
+        }
+
+        // Suara CENTLING ganda saat berhasil mengembalikan barang (Sama kuatnya dengan scan)
+        function playCentling() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Nada Pertama (Tinggi)
+                const osc1 = ctx.createOscillator(); const gain1 = ctx.createGain();
+                osc1.type = 'sine'; osc1.frequency.setValueAtTime(1200, ctx.currentTime);
+                gain1.gain.setValueAtTime(1, ctx.currentTime); // Volume penuh (Gain = 1)
+                gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+                osc1.connect(gain1); gain1.connect(ctx.destination);
+                osc1.start(); osc1.stop(ctx.currentTime + 0.12);
+                
+                // Nada Kedua (Lebih Tinggi, jeda 0.07 detik agar terdengar lenting ganda)
+                setTimeout(() => {
+                    const osc2 = ctx.createOscillator(); const gain2 = ctx.createGain();
+                    osc2.type = 'sine'; osc2.frequency.setValueAtTime(1600, ctx.currentTime);
+                    gain2.gain.setValueAtTime(1, ctx.currentTime); // Volume penuh (Gain = 1)
+                    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+                    osc2.connect(gain2); gain2.connect(ctx.destination);
+                    osc2.start(); osc2.stop(ctx.currentTime + 0.18);
+                }, 70);
             } catch (e) { }
         }
 
@@ -164,7 +189,7 @@
         }
 
         async function scanOffline() {
-            if (!isScanning || isModalOpen || isCooldown) {
+            if (!isScanning || isModalOpen) {
                 requestAnimationFrame(scanOffline); return; 
             }
 
@@ -177,12 +202,12 @@
                         const dataDitemukan = dbAnggota[idData];
                             
                         if (!dataDitemukan) {
+                            isModalOpen = true; // Kunci scanner sebentar
                             document.getElementById('output').className = "out-danger";
                             document.getElementById('output-nama').innerText = "⚠️ ID " + idData + " tidak terdaftar!";
                             document.getElementById('output').style.display = "block";
                             if (navigator.vibrate) navigator.vibrate([100, 100, 100]); 
-                            isCooldown = true; 
-                            setTimeout(() => { isCooldown = false; document.getElementById('output').style.display = "none"; }, 500);
+                            setTimeout(() => { isModalOpen = false; document.getElementById('output').style.display = "none"; }, 1200);
                         } else {
                             playBeep();
                             bukaModal(idData, dataDitemukan.nama || "Tanpa Nama");
@@ -203,7 +228,6 @@
             document.getElementById('m-nama').innerText = nama; document.getElementById('m-id').innerText = id;
             document.getElementById('m-qty').value = 1;
             
-            // Cek barang yang sedang dipinjam oleh ID ini
             const barangDipinjam = trackingData.filter(row => row.id === id && row.status === "Dipinjam");
             const returnSection = document.getElementById('return-section');
             const listContainer = document.getElementById('active-loan-list');
@@ -211,6 +235,14 @@
 
             if (barangDipinjam.length > 0) {
                 returnSection.style.display = "block";
+                
+                // FITUR UPDATE: Jika meminjam lebih dari 1 barang, munculkan tombol Kembalikan Semua di paling atas
+                if (barangDipinjam.length > 1) {
+                    listContainer.innerHTML += `
+                        <button onclick="kembalikanSemuaBarang('${id}')" class="btn btn-warning" style="margin-bottom: 12px; font-size:13px;">⬇️ Kembalikan Semua (${barangDipinjam.length} Barang)</button>
+                    `;
+                }
+
                 barangDipinjam.forEach(row => {
                     listContainer.innerHTML += `
                         <div class="active-loan-item">
@@ -225,28 +257,16 @@
             modalOverlay.style.display = 'flex';
         }
 
-        // isAction digunakan untuk menentukan apakah jeda cooldown diperlukan
-        function tutupModal(isAction = false) {
+        function tutupModal() {
             modalOverlay.style.display = 'none';
-            if (isAction) {
-                // Jeda / Cooldown .5 detik jika terjadi transaksi
-                isCooldown = true;
-                cooldownOverlay.style.display = 'flex';
-                setTimeout(() => {
-                    isCooldown = false;
-                    cooldownOverlay.style.display = 'none';
-                    isModalOpen = false;
-                }, 500); // .5 Detik Cooldown
-            } else {
-                isModalOpen = false; // Langsung bisa scan jika cuma klik batal
-            }
+            // Hanya jeda anti-loop mikro 300ms (tidak terlihat oleh mata pengguna) saat menutup modal agar tidak langsung ter-scan ulang frame yang sama
+            setTimeout(() => { isModalOpen = false; }, 300);
         }
 
         function pinjamBarang() {
             const itemDipilih = document.getElementById('m-item').value;
             const jumlah = document.getElementById('m-qty').value;
 
-            // Validasi double pinjam barang yang sama
             const isDuplicate = trackingData.some(row => row.id === tempId && row.item === itemDipilih && row.status === "Dipinjam");
             if (isDuplicate) return alert(`Anggota ini sedang meminjam ${itemDipilih} dan belum dikembalikan!`);
             if (jumlah < 1) return alert("Jumlah minimal 1");
@@ -260,16 +280,44 @@
             });
             
             localStorage.setItem('tracker_inout_v2', JSON.stringify(trackingData)); 
-            updateUI(); tutupModal(true);
+            updateUI(); 
+            tutupModal();
         }
 
+        // Fungsi kembalikan 1 barang spesifik
         function kembalikanBarang(idTransaksi) {
             const index = trackingData.findIndex(row => row.id_transaksi === idTransaksi);
             if(index !== -1) {
+                const namaBarang = trackingData[index].item;
                 trackingData[index].status = "Dikembalikan";
                 trackingData[index].waktu_kembali = getWaktuSekarang();
                 localStorage.setItem('tracker_inout_v2', JSON.stringify(trackingData));
-                updateUI(); tutupModal(true);
+                
+                updateUI(); 
+                playCentling(); // Bunyi centling nyaring
+                alert(`🎉 Berhasil! Barang "${namaBarang}" milik ${tempNama} telah dikembalikan.`);
+                tutupModal();
+            }
+        }
+
+        // FITUR UPDATE: Fungsi kembalikan semua barang sekaligus
+        function kembalikanSemuaBarang(idAnggota) {
+            let totalBarang = 0;
+            trackingData.forEach((row, index) => {
+                if (row.id === idAnggota && row.status === "Dipinjam") {
+                    trackingData[index].status = "Dikembalikan";
+                    trackingData[index].waktu_kembali = getWaktuSekarang();
+                    totalBarang++;
+                }
+            });
+
+            if (totalBarang > 0) {
+                localStorage.setItem('tracker_inout_v2', JSON.stringify(trackingData));
+                
+                updateUI(); 
+                playCentling(); // Bunyi centling nyaring
+                alert(`🎉 Berhasil! Semua barang (${totalBarang} item) milik ${tempNama} telah dikembalikan bersamaan.`);
+                tutupModal();
             }
         }
 
